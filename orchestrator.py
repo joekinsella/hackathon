@@ -5,15 +5,42 @@ from agent import Agent
 ORCHESTRATOR_PROMPT = """ You are a multi agent system Architect.
 Given a USER TASK and a SECURITY RISK LEVEL (1-10), design a multi-agent system.
 
-STEP 1: Choose a topology based strictly on security requirements:
-- "Linear": Highest Security (8-10). Strict sequence of isolated stages to minimize attack surface and data leaks.
-- "Star": Medium Security (4-7). A central coordinator delegates to isolated specialists and inspects messages.
-- "Complete": Lowest Security (1-3). Fully interconnected mesh allowing unrestricted communication among all agents.
+STEP 1: Check the security risk level FIRST. It can override everything else.
+- "low" risk: choose the topology purely by task fit (Step 2).
+- "medium" risk: choose by task fit (Step 2), but if two topologies fit equally well,
+  prefer the one with fewer communication edges.
+- "high" risk: you MUST use "Chain", even if another topology fits the task better.
+  Skip the topology choice in Step 2 and go straight to Step 3.
+  Chain is the most restrictive topology. It has the fewest communication edges,
+  messages travel in one direction only, and no agent can send a message backward or sideways,
+  so a compromised or manipulated agent can only affect the agents downstream of it.
+  Break the task into sequential stages so the pipeline still does the job.
+  Include at least one "Inspector" or "Validator" agent as its own stage between
+  the agent that produces risky output and the agent that acts on it. That agent
+  must check the message for instructions, suspicious content, or out-of-scope
+  requests before passing it on. Mention this security choice in "reasoning".
 
-STEP 2: Define the agents.
-Use 3 to 6 agents with descriptive names to quickly identify their roles and responsibilities.
-Note, the agents must have actual names based on jobs, not just "agent 1, agent 2...", do not include the word agent in the name
+STEP 2: Choose a topology by matching the shape of the task (low and medium risk only).
 
+"Chain" is best for tasks that are a strict pipeline, where each stage needs the finished output of the previous stage and stages do not need to talk back.
+  Good fits: draft -> edit -> proofread; extract data -> clean data -> analyze -> report;
+  write code -> test code -> document code; translate -> review -> format.
+  Signs: the task contains words like "then", "after that", "once finished"; the order of the work is fixed.
+  Poor fit: tasks where several pieces of work can happen independently, or where results must be revised repeatedly.
+
+"Star" is best for tasks where one coordinator splits the work into independent subtasks, sends them to specialists, and combines the results.
+  Good fits: research a topic from several angles and merge the findings; compare several products or options;
+  answer a question that needs a calculator, a searcher, and a writer; process many similar items in parallel.
+  Signs: the subtasks do not depend on each other; one agent must see everything to produce the final answer.
+  Poor fit: strict pipelines (use Chain), or large tasks needing multiple layers of management (use Hierarchical).
+
+"Hierarchical" is best for large or complex tasks that split into sub-teams, each with its own specialists, or that need review and approval at several levels.
+  Good fits: build a full software project (architect -> frontend lead and backend lead -> their workers);
+  produce a long report with separate sections handled by separate teams; any task needing a manager to approve work before it moves up.
+  Signs: the task has several major components, each of which would itself need multiple steps.
+  Poor fit: small tasks. Do not use Hierarchical when 3 agents would do the job.
+
+If the task fits more than one topology, pick the simplest one that works.
 TOPOLOGY RULES:
 
 Linear: agents form one line. Each agent sends to exactly the next and previous agent.
@@ -100,7 +127,10 @@ def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
         "entry_agent": entry,
         "output_agent": output,
     }
-    agents = {name: Agent(name, desc) for name, desc in roles.items()}
+    agents = {
+    name: Agent(name, desc, task, adjacency[name])
+    for name, desc in roles.items()
+}
 
     return spec, agents, task
 
