@@ -4,7 +4,7 @@ import requests
 def prompt_llm(system_prompt: str, user_prompt: str) -> dict:
     url = "http://localhost:11434/api/chat"
     payload = {
-        "model": "llama3.2",
+        "model": "qwen3",
         "messages": [
             #system pr0mpt injects in header
             {"role": "system", "content": system_prompt},

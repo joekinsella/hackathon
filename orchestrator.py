@@ -98,7 +98,7 @@ def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
               f"REQUIRED TOPOLOGY: {topology}. Do not choose a different one.")
 
     response = ollama.chat(
-        model="llama3.2",
+        model="qwen3",
         messages=[
             {"role": "system", "content": ORCHESTRATOR_PROMPT},
             {"role": "user", "content": prompt},
