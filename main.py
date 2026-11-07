@@ -1,30 +1,32 @@
-import json
-
+import build_agents
 import detail_job
+from build_specs import create_spec_dict
+from set_topology import set_topology
 
 
+def main():
+    #task = input("Enter a task for an AI agent system: ").strip()
+    task = "make an ai that cracks an encoded message"
+    security = input(
+        "On a scale of 1-10, how important is security? "
+    ).strip()
 
-def main() -> list[str]:
-    """Prompts for input, executes the agent assignment request, and returns a list of job summaries."""
-    task = input("Enter a task for an AI agent system: ").strip()
-    if not task:
-        print("Task cannot be empty.")
-        return []
+    print("Waiting for design data...")
+    design_data = detail_job.get_agent_job_summaries(task, security)
+    roles_dict = design_data.get("agent_roles", {})
+    topology_type = design_data.get("topology_type", "Linear")
 
-    print("\nGenerating sub-agent roles...")
-    jobs = detail_job.get_agent_job_summaries(task)
+    # Generate adjacency dict
+    adjacency_dict = set_topology(list(roles_dict.keys()), topology_type)
 
-    # Transform structured jobs into a list of summary strings
-    summaries = [f"{job['title']}: {job['summary']}" for job in jobs]
+    # Create Spec instance
+    spec_dict = create_spec_dict(adjacency_dict, roles_dict)
 
-    # Print output
-    print(f"\n--- Assigned Jobs ({len(summaries)}) ---")
-    for idx, summary in enumerate(summaries, 1):
-        print(f"{idx}. {summary}")
-
-    # Return list of summaries
-    return summaries
+    print("\n--- Spec Dictionary ---")
+    print(spec_dict)
+    print(f"Entry Agent:  {spec_dict['entry']}")
+    print(f"Output Agent: {spec_dict['output']}")
 
 
 if __name__ == "__main__":
-    job_summaries_list = main()
+    main()
