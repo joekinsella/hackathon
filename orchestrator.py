@@ -98,7 +98,7 @@ def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
               f"REQUIRED TOPOLOGY: {topology}. Do not choose a different one.")
 
     response = ollama.chat(
-        model="qwen3",
+        model="llama3.2",
         messages=[
             {"role": "system", "content": ORCHESTRATOR_PROMPT},
             {"role": "user", "content": prompt},
@@ -127,10 +127,10 @@ def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
         "entry_agent": entry,
         "output_agent": output,
     }
-    agents = {
-    name: Agent(name, desc, task, adjacency[name])
-    for name, desc in roles.items()
-}
+    agents = {}
+    
+    for name, desc in roles.items():
+        agents[name] = Agent(name, desc, task, adjacency[name])
 
     return spec, agents, task
 
