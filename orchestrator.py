@@ -1,6 +1,7 @@
 import json
 import ollama
 from agent import Agent
+from hosted_llm import prompt_hosted
 
 ORCHESTRATOR_PROMPT = """ You are a multi agent system Architect.
 Given a USER TASK and a SECURITY RISK LEVEL (1-10), design a multi-agent system.
@@ -104,46 +105,40 @@ Return ONLY a JSON object in exactly this format:
 def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
     # CHANGED: topology is computed in code so the model can't ignore the thresholds
     level = int(security_score)
-    topology = "Linear" if level >= 8 else "Star" if level >= 4 else "Complete"
 
     prompt = (f"Design a multi-agent system for task: '{task}' "
-              f"with Security Level: {level}/10. "
-              f"REQUIRED TOPOLOGY: {topology}. Do not choose a different one.")
+              f"with Security Level: {level}/10. ")
 
-    response = ollama.chat(
-        model="llama3.2",
-        messages=[
-            {"role": "system", "content": ORCHESTRATOR_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        format="json",
-    )
-
-    # CHANGED: no try/except for now; a crash shows you what went wrong
-    data = json.loads(response["message"]["content"])
-    print("Orchestrator output:", json.dumps(data, indent=2))   # handy while debugging
+    data = prompt_hosted(ORCHESTRATOR_PROMPT, prompt)
+    print("Orchestrator output:", json.dumps(data, indent=2))
 
     adjacency = data["adjacency_list"]
     roles = data["agent_roles"]
-    print("adjacency keys:", sorted(adjacency))
-    print("roles keys:    ", sorted(roles))
+
+    # fail with a clear message instead of a KeyError later
+    if set(adjacency) != set(roles):
+        raise ValueError(f"Name mismatch: {set(adjacency) ^ set(roles)}")
+
     names = list(adjacency)
 
-    # NEW: entry/output agents aren't in the JSON, so derive them
-    if data["topology_type"] == "Star":
+    # entry/output agents aren't in the JSON, so derive them
+    if topology == "Star":
         entry = max(adjacency, key=lambda a: len(adjacency[a]))   # the hub
         output = entry
     else:                                                          # Linear or Complete
         entry = names[0]
         output = names[-1]
 
+    # tell the output agent it gives the final answer
+    roles[output] += " You produce the final answer to the overall task."
+
     spec = {
         "adjacency": adjacency,
         "entry_agent": entry,
         "output_agent": output,
     }
+
     agents = {}
-    
     for name, desc in roles.items():
         agents[name] = Agent(name, desc, task, adjacency[name])
 
