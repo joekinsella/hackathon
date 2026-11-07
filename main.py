@@ -1,7 +1,7 @@
 import build_agents
 import detail_job
 from build_specs import create_spec_dict
-from set_topology import set_topology
+from set_topology import build_topology_from_details
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
     topology_type = design_data.get("topology_type", "Linear")
 
     # Generate adjacency dict
-    adjacency_dict = set_topology(list(roles_dict.keys()), topology_type)
+    adjacency_dict = build_topology_from_details(design_data)
 
     # Create Spec instance
     spec_dict = create_spec_dict(adjacency_dict, roles_dict)

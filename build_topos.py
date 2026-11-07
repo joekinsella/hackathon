@@ -1,3 +1,5 @@
+"""
+THIS IS ALL OUTDATED AN NOW USELESS, WILL PROBABLY DELETE SOON
 def build_linear(length: int) -> dict:
     my_dict = {}
     for i in range(length):
@@ -29,3 +31,4 @@ def create_star(length: int) -> dict:
         else:
             my_dict[i].append(0)
     return my_dict
+"""

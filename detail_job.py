@@ -27,8 +27,8 @@ Note, the agents must have actual names based on jobs, not just "agent 1, agent 
 
 TOPOLOGY RULES:
 
-Linear: agents form one line. Each agent sends to exactly the next agent.
-The last agent has []. No agent has more than one target. No replies backward.
+Linear: agents form one line. Each agent sends to exactly the next and previous agent.
+The last agent has [second to last agent]. No agent has more than two target. The first and last agent have exactly one target
 
 Star: ONE hub agent connects to every other agent. Spokes talk ONLY to the hub,
 never to each other. The hub lists all spokes; each spoke lists only the hub.
@@ -36,14 +36,37 @@ never to each other. The hub lists all spokes; each spoke lists only the hub.
 Complete: all agents are connected to each other. Each agent lists all other agents as its targets.
 
 The examples above only show the SHAPE. Use your own agent names that fit the task.
+STEP 3: Define the adjacency list based on the chosen topology.
+Example of linear:
+{
+  "AgentA": ["AgentB"],
+  "AgentB": ["AgentA", "AgentC"],
+  "AgentC": ["AgentB"]
+}
 
-STEP 3: Write a role description for each agent: what it does, what input it expects,
+Example of star:
+{
+  "HubAgent": ["AgentA", "AgentB", "AgentC"],
+  "AgentA": ["HubAgent"],
+  "AgentB": ["HubAgent"],
+  "AgentC": ["HubAgent"]
+}
+
+Example of complete:
+{
+  "AgentA": ["AgentB", "AgentC"],
+  "AgentB": ["AgentA", "AgentC"],
+  "AgentC": ["AgentA", "AgentB"]
+}
+
+STEP 4: Write a role description for each agent: what it does, what input it expects,
 and what it must pass on. For high security risk, include an agent whose job is to
 inspect or validate other agents' output.
 
 Return ONLY a JSON object in exactly this format:
 {
   "topology_type": "Linear" or "Complete" or "Star",
+  "adjacency_list" : {"<Agent>": ["<TargetAgent>", ...]},
   "reasoning": "<one or two sentences>",
   "agent_roles": {"<Agent>": "<role and instructions>"}
 }
