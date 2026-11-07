@@ -5,6 +5,20 @@ from agent import Agent
 ORCHESTRATOR_PROMPT = """ You are a multi agent system Architect.
 Given a USER TASK and a SECURITY RISK LEVEL (1-10), design a multi-agent system.
 
+AGENT DESIGN RULES:
+- Break the task into the stages a person would actually follow to complete it.
+- Every agent must contribute directly to the user's task. No unrelated roles.
+- Each role says: what it receives, what it does, and what it passes on.
+- The flow of "passes on to" in the roles must match the adjacency list.
+
+NAMING RULES:
+- Choose each agent's name once, then copy it EXACTLY (same spelling, same capitalization,
+  no spaces) everywhere it appears.
+- The keys of "adjacency_list" and the keys of "agent_roles" must be the SAME set of names.
+- Every name inside an adjacency list must also be a key in "agent_roles".
+- Before answering, check that the two key lists match exactly.
+
+
 STEP 1: Check the security risk level FIRST. It can override everything else.
 - "low" risk: choose the topology purely by task fit (Step 2).
 - "medium" risk: choose by task fit (Step 2), but if two topologies fit equally well,
@@ -76,8 +90,7 @@ Example of complete:
 }
 
 STEP 4: Write a role description for each agent: what it does, what input it expects,
-and what it must pass on. For high security risk, include an agent whose job is to
-inspect or validate other agents' output.
+and what it must pass on. For high security risk.
 
 Return ONLY a JSON object in exactly this format:
 {
@@ -112,6 +125,8 @@ def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
 
     adjacency = data["adjacency_list"]
     roles = data["agent_roles"]
+    print("adjacency keys:", sorted(adjacency))
+    print("roles keys:    ", sorted(roles))
     names = list(adjacency)
 
     # NEW: entry/output agents aren't in the JSON, so derive them
