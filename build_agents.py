@@ -1,3 +1,4 @@
+"""PROBABLY OUTDATED AND NOW USELESS, WILL PROBABLY DELETE SOON
 class Agent:
 
     def __init__(self, agent_id: str, role_description: str):
@@ -11,7 +12,7 @@ class Agent:
 
 
 def create_agent_network(design_data: dict) -> dict[str, Agent]:
-    """Instantiates Agent objects using the design_data roles from Ollama."""
+
     agent_roles = design_data.get("agent_roles", {})
 
     agents = {}
@@ -21,3 +22,4 @@ def create_agent_network(design_data: dict) -> dict[str, Agent]:
         )
 
     return agents
+"""
