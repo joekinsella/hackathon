@@ -1,14 +1,5 @@
-"""PROBABLY OUTDATED AND NOW USELESS, WILL PROBABLY DELETE SOON
-class Agent:
-
-    def __init__(self, agent_id: str, role_description: str):
-        self.agent_id = agent_id
-        self.role_description = role_description
-        self.memory_log = []
-        self.output = ""
-
-    def __repr__(self):
-        return f"Agent('{self.agent_id}', '{self.role_description}')"
+#NOT USELESS
+"""
 
 
 def create_agent_network(design_data: dict) -> dict[str, Agent]:

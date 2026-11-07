@@ -1,7 +1,6 @@
-import build_agents
 import detail_job
 from build_specs import create_spec_dict
-from set_topology import build_topology_from_details
+from build_adjacency import build_topology_from_details
 
 
 def main():

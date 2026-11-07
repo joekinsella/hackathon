@@ -1,5 +1,14 @@
-from build_agents import Agent
 
+class Agent:
+
+    def __init__(self, agent_id: str, role_description: str):
+        self.agent_id = agent_id
+        self.role_description = role_description
+        self.memory_log = []
+        self.output = ""
+
+    def __repr__(self):
+        return f"Agent('{self.agent_id}', '{self.role_description}')"
 
 def create_spec_dict(adjacency_dict: dict, roles_desc_dict: dict) -> dict:
     """Creates a spec dictionary containing adjacency graph, role descriptions,
