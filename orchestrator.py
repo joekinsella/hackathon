@@ -34,6 +34,8 @@ TOPOLOGY DEFINITIONS:
 - Star: ONE hub agent connects to every other agent. Spokes talk ONLY to the hub.
 - Complete: all agents are connected to each other.
 
+
+
 Return ONLY a valid JSON object in exactly this format:
 {
   "topology_type": "Linear" or "Complete" or "Star",
