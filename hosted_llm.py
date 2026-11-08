@@ -34,7 +34,7 @@ def prompt_hosted(system_prompt: str, user_prompt: str, max_retries: int = 3) ->
     for model_name in CHEAPEST_MODELS:
         for attempt in range(1, max_retries + 1):
             try:
-                print(f"🚀 [OPENAI LLM] Querying {model_name}...")
+                print(f"[OPENAI LLM] Querying {model_name}...")
                 response = client.chat.completions.create(
                     model=model_name,
                     messages=[
