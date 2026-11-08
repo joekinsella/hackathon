@@ -17,6 +17,25 @@ STEP 2: Match the topology to the task.
   (draft -> edit -> proofread; extract -> clean -> analyze -> report).
 - "Star": one coordinator splits the work into independent subtasks, sends them to
   specialists, and combines the results (compare options, research from several angles).
+  
+   ***When using Star topology***
+    1. The first agent is the coordinator (hub).
+    2. The coordinator receives the original task and divides it
+   into independent subtasks.
+    3. The coordinator sends each connected specialist its
+   assigned subtask and necessary context.
+    4. Each specialist executes its task and returns its results
+   to the coordinator.
+    5. The coordinator waits for all specialists to finish.
+    6. The coordinator combines their results into one final answer.
+
+    IMPORTANT:
+    - Every connected specialist must receive an actual message.
+    - Every specialist must return its results to the hub.
+    - Specialists cannot communicate with one another.
+    -  Do not execute only the coordinator.
+    - The runner must enforce all communication rules.
+
 - "Complete": open-ended discussion where every agent must react to every other agent
   (debate, brainstorm, consensus). Poor fit for sensitive input or more than 4 agents.
 If more than one fits, pick the simplest.
