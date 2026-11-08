@@ -52,7 +52,7 @@ class AgentChatUI(tk.Tk):
     def __init__(self, title="Multi-Agent System Execution"):
         super().__init__()
         self.title(title)
-        self.geometry("1100x850")
+        self.geometry("1100x880")
         self.configure(bg="#F4F6F8")
 
         # Top Header Title
@@ -137,11 +137,11 @@ class AgentChatUI(tk.Tk):
 
         # Topology Canvas
         self.graph_canvas = tk.Canvas(
-            right_frame, width=320, height=480, bg="#FAFAFA", highlightthickness=1
+            right_frame, width=320, height=420, bg="#FAFAFA", highlightthickness=1
         )
         self.graph_canvas.pack(fill=tk.BOTH, expand=True)
 
-        # BOTTOM PANEL: Final Answer Box
+        # BOTTOM PANEL: Final Answer Box with Vertical Scrollbar
         bottom_frame = tk.LabelFrame(
             self,
             text=" Final Answer (Auto-copied to Clipboard) ",
@@ -153,22 +153,33 @@ class AgentChatUI(tk.Tk):
         )
         bottom_frame.pack(fill=tk.X, padx=10, pady=(5, 10))
 
+        # Container for Text + Scrollbar
+        text_container = tk.Frame(bottom_frame, bg="#FFFFFF")
+        text_container.pack(fill=tk.BOTH, expand=True)
+
+        answer_scrollbar = ttk.Scrollbar(text_container, orient="vertical")
         self.final_answer_text = tk.Text(
-            bottom_frame,
-            height=4,
+            text_container,
+            height=10,
             font=("Consolas", 9),
             bg="#F8F9FA",
             fg="#111111",
             wrap=tk.WORD,
             relief=tk.FLAT,
-            padx=6,
-            pady=6,
+            padx=8,
+            pady=8,
+            yscrollcommand=answer_scrollbar.set,
         )
+        answer_scrollbar.config(command=self.final_answer_text.yview)
+
         self.final_answer_text.insert(
-            "1.0", "Executing multi-agent task... Final answer will appear here once ready."
+            "1.0",
+            "Executing multi-agent task... Final answer will appear here once ready.",
         )
         self.final_answer_text.config(state=tk.DISABLED)
-        self.final_answer_text.pack(fill=tk.X)
+
+        self.final_answer_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        answer_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Color mapping for distinct agents
         self.agent_colors = {}
@@ -194,7 +205,6 @@ class AgentChatUI(tk.Tk):
         """Renders topology headers, graph nodes, and directed arrows."""
         self.graph_canvas.delete("all")
 
-        # Automatically detect shape and reasoning without touching `spec`
         shape_name, reasoning_text = detect_topology_info(spec)
         self.topo_shape_lbl.config(text=f"Topology: {shape_name}")
         self.topo_reason_lbl.config(text=reasoning_text)
@@ -206,8 +216,8 @@ class AgentChatUI(tk.Tk):
         if n == 0:
             return
 
-        center_x, center_y = 160, 220
-        radius = 100 if n > 2 else 65
+        center_x, center_y = 160, 200
+        radius = 95 if n > 2 else 60
         node_radius = 24
 
         for i, name in enumerate(agent_names):
@@ -342,13 +352,14 @@ class AgentChatUI(tk.Tk):
         self.canvas.yview_moveto(1.0)
 
     def set_final_answer(self, final_text: str):
-        """Displays final answer in bottom box and automatically copies to system clipboard."""
+        """Displays full final answer in bottom box and automatically copies to system clipboard."""
         if not final_text:
             return
 
         self.final_answer_text.config(state=tk.NORMAL)
         self.final_answer_text.delete("1.0", tk.END)
         self.final_answer_text.insert("1.0", final_text)
+        self.final_answer_text.see("1.0")  # Scroll to top of output
         self.final_answer_text.config(state=tk.DISABLED)
 
         # Auto-copy to clipboard
