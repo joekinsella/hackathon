@@ -397,7 +397,7 @@ def run_system_with_ui(spec, agents, task, ui: AgentChatUI):
 
             if agent_id == spec["output_agent"]:
                 last_output = output
-                if is_final:
+                if is_final and round_num > 0:
                     print("Final output reached by output agent.")
                     ui.after(0, ui.set_final_answer, last_output)
                     return last_output
