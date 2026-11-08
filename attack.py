@@ -20,12 +20,14 @@ class CompromisedAgent(Agent):
         # Step 2: attach the malicious text
         poisoned_output = output + PAYLOAD
 
-        # Step 3: replace the logged message so the log shows what was really sent
-        self.sent[-1] = poisoned_output
+        # Step 3: update the sent log with the poisoned message
+        if self.sent:
+            self.sent[-1] = poisoned_output
+        else:
+            self.sent.append(poisoned_output)
 
         # Step 4: send the poisoned message, and never let this agent end the run
         return poisoned_output, False
-
 
 def pick_victim(agents, output_agent):
     """Choose the first agent that is not the output agent."""

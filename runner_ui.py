@@ -3,7 +3,7 @@ import threading
 import tkinter as tk
 from tkinter import scrolledtext, ttk
 
-# Distinct background colors assigned to agents
+# Distinct background color palette for rendering different agent outputs
 AGENT_COLOR_PALETTE = [
     "#D0E8FF",  # Soft Blue
     "#D4EDDA",  # Soft Green
@@ -15,8 +15,11 @@ AGENT_COLOR_PALETTE = [
 ]
 
 
-def run_system_gui(spec: dict, agents: dict, task: str):
-    """Launches a Tkinter window and streams agent execution outputs in real time."""
+def run_system_gui(spec: dict, agents: dict, task: str) -> str:
+    """Launches a Tkinter UI window to display multi-agent communication in real time
+
+    with unique background colors per agent, returning the final result when complete.
+    """
     root = tk.Tk()
     root.title("Multi-Agent Architecture Execution")
     root.geometry("960x750")
@@ -37,13 +40,13 @@ def run_system_gui(spec: dict, agents: dict, task: str):
         font=("Segoe UI", 9, "italic"),
     ).pack(anchor="w")
 
-    # Scrollable output log area
+    # Scrollable text widget for live logs
     output_box = scrolledtext.ScrolledText(
         root, wrap=tk.WORD, font=("Consolas", 10), padx=10, pady=10
     )
     output_box.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-    # Assign each agent a unique background color tag
+    # Configure custom background color tags for each participating agent
     for idx, agent_id in enumerate(agents.keys()):
         color = AGENT_COLOR_PALETTE[idx % len(AGENT_COLOR_PALETTE)]
         tag_name = f"tag_{agent_id}"
@@ -59,7 +62,7 @@ def run_system_gui(spec: dict, agents: dict, task: str):
             spacing3=10,
         )
 
-    # Tag configuration for final completion banner
+    # Tag formatting for the final completion block
     output_box.tag_config(
         "tag_final",
         background="#28a745",
@@ -72,34 +75,40 @@ def run_system_gui(spec: dict, agents: dict, task: str):
     )
 
     msg_queue = queue.Queue()
+    result_container = {"final": None}
 
     def worker():
-        """Background thread running the LLM execution pipeline without freezing the UI."""
+        """Executes agent steps in a background thread to prevent GUI freezing."""
         adjacency = spec["adjacency"]
-        inbox = {agent_id: [] for agent_id in agents}  # Mailbox per agent[cite: 17]
-        inbox[spec["entry_agent"]].append(task)  # Initial user task[cite: 17]
+        inbox = {
+            agent_id: [] for agent_id in agents
+        }  # Create mailboxes[cite: 10, 16]
+        inbox[spec["entry_agent"]].append(
+            task
+        )  # Assign initial task to entry agent[cite: 10, 16]
         last_output = None
-        max_rounds = len(agents) * 3  # Sufficient rounds for multi-pass tasks
+        max_rounds = len(agents) * 3  # Allow sufficient pipeline passes
 
         for round_num in range(max_rounds):
             outgoing = []
 
             for agent_id, agent in agents.items():
-                if not inbox[agent_id]:
+                if not inbox[agent_id]:  # Skip agents with empty inboxes[cite: 10, 16]
                     continue
 
                 messages = inbox[agent_id]
-                inbox[agent_id] = []  # Clear inbox[cite: 17]
+                inbox[agent_id] = []  # Flush current inbox[cite: 10, 16]
 
-                # Run agent LLM query[cite: 12]
+                # Process state transition and LLM generation[cite: 11, 16]
                 output, is_final = agent.update_state(messages)
 
-                # Send real-time message payload to GUI thread
+                # Queue output for real-time UI rendering
                 msg_queue.put(("OUTPUT", round_num, agent_id, output))
 
                 if agent_id == spec["output_agent"]:
                     last_output = output
                     if is_final:
+                        result_container["final"] = output
                         msg_queue.put(
                             ("FINAL", f"FINAL ANSWER REACHED:\n{output}")
                         )
@@ -111,15 +120,16 @@ def run_system_gui(spec: dict, agents: dict, task: str):
             for target, message in outgoing:
                 inbox[target].append(message)
 
-            if not any(inbox.values()):
+            if not any(inbox.values()):  # Exit if no active messages remain[cite: 10, 16]
                 break
 
+        result_container["final"] = last_output
         msg_queue.put(
             ("FINAL", f"FINAL ANSWER (Pipeline Completed):\n{last_output}")
         )
 
     def poll_queue():
-        """Processes incoming agent responses from the background queue every 100ms."""
+        """Polls background messages and updates UI elements on the main thread."""
         try:
             while True:
                 msg_type, *args = msg_queue.get_nowait()
@@ -146,9 +156,10 @@ def run_system_gui(spec: dict, agents: dict, task: str):
 
         root.after(100, poll_queue)
 
-    # Start background execution thread
+    # Launch background thread and event pollers
     threading.Thread(target=worker, daemon=True).start()
-
-    # Start polling loop and show window
     root.after(100, poll_queue)
     root.mainloop()
+
+    # Pass final output string back to main.py upon window exit
+    return result_container["final"]
