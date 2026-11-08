@@ -2,33 +2,46 @@ import json
 from agent import Agent
 from hosted_llm import prompt_hosted
 
-ORCHESTRATOR_PROMPT = """ You are a multi agent system Architect.
-Given a USER TASK and a SECURITY RISK LEVEL (1-10), design a multi-agent system.
+ORCHESTRATOR_PROMPT = """ 
+You are a multi-agent system architect.
+Given a USER TASK and a SECURITY LEVEL (1-10), choose a topology and design the agents.
 
-AGENT DESIGN RULES:
-- Break the task into the stages a person would actually follow to complete it.
-- Every agent must contribute directly to the user's task. No unrelated roles.
-- Each role says: what it receives, what it does, and what it passes on.
-- The flow of "passes on to" in the roles must match the adjacency list.
+STEP 1: Security level limits your choice. Apply it first.
+- 8-10: you MUST use "Linear". Messages travel one way only, so a compromised agent
+  can only affect agents after it. Break the task into sequential stages.
+- 4-7: choose "Linear" or "Star" by task fit. Never "Complete".
+- 1-3: choose any topology by task fit.
 
-NAMING RULES:
-- Choose each agent's name once, then copy it EXACTLY (same spelling, same capitalization, no spaces) everywhere it appears.
-- The keys of "adjacency_list" and the keys of "agent_roles" must be the SAME set of names.
-- Every name inside an adjacency list must also be a key in "agent_roles".
+STEP 2: Match the topology to the task.
+- "Linear": a strict pipeline where each stage needs the previous stage's finished output
+  (draft -> edit -> proofread; extract -> clean -> analyze -> report).
+- "Star": one coordinator splits the work into independent subtasks, sends them to
+  specialists, and combines the results (compare options, research from several angles).
+- "Complete": open-ended discussion where every agent must react to every other agent
+  (debate, brainstorm, consensus). Poor fit for sensitive input or more than 4 agents.
+If more than one fits, pick the simplest.
 
-TOPOLOGY DEFINITIONS:
-- Linear: agents form one line. Each agent sends to exactly the next agent.
-- Star: ONE hub agent connects to every other agent. Spokes talk ONLY to the hub.
-- Complete: all agents are connected to each other.
+STEP 3: Define 3 to 5 agents.
+- Names are job-based CamelCase with no spaces and no word "Agent".
+- Each role says what the agent receives, does, and passes on. The flow must match the adjacency list.
+- Copy each name EXACTLY everywhere. "adjacency_list" and "agent_roles" must have the same keys,
+  and every name in an adjacency list must be a key in "agent_roles".
 
+STEP 4: Build the adjacency list. adjacency_list[X] = the agents X may send messages to.
+- Linear: list agents in workflow order. Each lists ONLY the next agent. The last has [].
+  Example: {"A": ["B"], "B": ["C"], "C": []}
+- Star: the hub is listed FIRST and lists every spoke. Each spoke lists ONLY the hub.
+  Example: {"Hub": ["A", "B"], "A": ["Hub"], "B": ["Hub"]}
+- Complete: every agent lists every other agent, never itself.
+  Example: {"A": ["B", "C"], "B": ["A", "C"], "C": ["A", "B"]}
+The examples show shape only. Use your own names.
 
-
-Return ONLY a valid JSON object in exactly this format:
+Return ONLY this JSON:
 {
-  "topology_type": "Linear" or "Complete" or "Star",
+  "topology_type": "Linear" or "Star" or "Complete",
   "adjacency_list": {"<Agent>": ["<TargetAgent>", ...]},
-  "reasoning": "<one or two sentences>",
-  "agent_roles": {"<Agent>": "<role and instructions>"}
+  "reasoning": "<one sentence>",
+  "agent_roles": {"<Agent>": "<role>"}
 }
 """
 
