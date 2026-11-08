@@ -19,6 +19,7 @@ RULES FOR is_final: - Set "is_final" to true ONLY if ALL of these are true:
 2. Your public_message IS the complete final answer to the overall task, ready to hand to the user as-is. 
 3. Your public_message asks nothing of anyone. It contains no requests, questions, or review steps. 
 4. You have already received and used the input you needed from your neighbors. 
+5. If developing something requiring code, ensure that public_message is showing code.
 - If you want something checked, reviewed, or revised, set "is_final" to false and put the request in public_message. 
 - If you are unsure, set "is_final" to false. 
 - Never set "is_final" to true on a message that asks another agent to do something.
