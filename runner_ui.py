@@ -153,7 +153,6 @@ class AgentChatUI(tk.Tk):
         )
         bottom_frame.pack(fill=tk.X, padx=10, pady=(5, 10))
 
-        # Container for Text + Scrollbar
         text_container = tk.Frame(bottom_frame, bg="#FFFFFF")
         text_container.pack(fill=tk.BOTH, expand=True)
 
@@ -181,7 +180,7 @@ class AgentChatUI(tk.Tk):
         self.final_answer_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         answer_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Color mapping for distinct agents
+        # Color mapping and infection tracking
         self.agent_colors = {}
         self.palette = [
             ("#E3F2FD", "#1565C0"),  # Blue
@@ -194,6 +193,8 @@ class AgentChatUI(tk.Tk):
 
         self.node_positions = {}
         self.node_items = {}
+        self.infected_nodes = set()
+        self.infected_rings = {}
 
     def _get_agent_style(self, agent_id: str):
         if agent_id not in self.agent_colors:
@@ -201,9 +202,41 @@ class AgentChatUI(tk.Tk):
             self.agent_colors[agent_id] = self.palette[idx]
         return self.agent_colors[agent_id]
 
+    def mark_node_infected(self, agent_id: str):
+        """Draws a red ring around an infected node and updates its colors."""
+        if agent_id not in self.node_positions:
+            return
+
+        self.infected_nodes.add(agent_id)
+        x, y = self.node_positions[agent_id]
+        node_radius = 24
+
+        # Draw red outer halo circle around the node
+        if agent_id not in self.infected_rings:
+            ring = self.graph_canvas.create_oval(
+                x - node_radius - 6,
+                y - node_radius - 6,
+                x + node_radius + 6,
+                y + node_radius + 6,
+                outline="#D32F2F",
+                width=3,
+            )
+            self.infected_rings[agent_id] = ring
+
+        # Update node palette colors to red theme
+        if agent_id in self.node_items:
+            circle, _, _ = self.node_items[agent_id]
+            infected_bg = "#FFCDD2"
+            infected_accent = "#B71C1C"
+            self.node_items[agent_id] = (circle, infected_bg, infected_accent)
+            self.graph_canvas.itemconfig(
+                circle, fill=infected_bg, outline=infected_accent, width=3
+            )
+
     def draw_topology(self, spec: dict, agents: dict):
         """Renders topology headers, graph nodes, and directed arrows."""
         self.graph_canvas.delete("all")
+        self.infected_rings.clear()
 
         shape_name, reasoning_text = detect_topology_info(spec)
         self.topo_shape_lbl.config(text=f"Topology: {shape_name}")
@@ -307,13 +340,22 @@ class AgentChatUI(tk.Tk):
 
     def add_chat_bubble(self, sender: str, message: str, is_memory: bool = False):
         bg_color, accent_color = self._get_agent_style(sender)
+
+        # Auto-detect canary or payload signature to trigger red ring
+        if (
+            "EVIL-MALWARE" in message
+            or "SYSTEM NOTICE:" in message
+            or "ZEBRA-" in message
+        ):
+            self.mark_node_infected(sender)
+
         self.highlight_active_node(sender)
 
         wrapper = tk.Frame(self.scrollable_frame, bg="#F4F6F8", pady=4)
         wrapper.pack(fill=tk.X, expand=True, padx=5)
 
-        card_bg = "#E0E0E0" if is_memory else bg_color
-        border_color = "#999999" if is_memory else accent_color
+        card_bg = "#FFEBEE" if sender in self.infected_nodes and not is_memory else ("#E0E0E0" if is_memory else bg_color)
+        border_color = "#D32F2F" if sender in self.infected_nodes and not is_memory else ("#999999" if is_memory else accent_color)
 
         card = tk.Frame(
             wrapper,
@@ -326,11 +368,14 @@ class AgentChatUI(tk.Tk):
         card.pack(anchor="w", fill=tk.X)
 
         label_title = f"[{sender}] - Private Memory" if is_memory else f"[{sender}]"
+        if sender in self.infected_nodes and not is_memory:
+            label_title += " ⚠️ INFECTED"
+
         title_lbl = tk.Label(
             card,
             text=label_title,
             font=("Segoe UI", 9, "bold"),
-            fg="#555555" if is_memory else accent_color,
+            fg="#D32F2F" if sender in self.infected_nodes else ("#555555" if is_memory else accent_color),
             bg=card_bg,
             anchor="w",
         )
@@ -359,7 +404,7 @@ class AgentChatUI(tk.Tk):
         self.final_answer_text.config(state=tk.NORMAL)
         self.final_answer_text.delete("1.0", tk.END)
         self.final_answer_text.insert("1.0", final_text)
-        self.final_answer_text.see("1.0")  # Scroll to top of output
+        self.final_answer_text.see("1.0")
         self.final_answer_text.config(state=tk.DISABLED)
 
         # Auto-copy to clipboard
