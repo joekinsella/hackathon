@@ -1,19 +1,6 @@
 import json
 from agent import Agent
-from openai import OpenAI
-
-# Custom API endpoint details
-BASE_URL = "http://127.0.0.1:31415/v1"
-API_KEY = "freellmapi-74d80b543e7a6340ca943283a04115b679bc6e5826414be7"
-
-# Using 'auto' allows the proxy router to automatically select an active free model,
-# or explicit available models like 'gemini-2.5-flash' / 'gemini-3.5-flash'
-MODEL_NAME = "auto"
-
-client = OpenAI(
-    base_url=BASE_URL,
-    api_key=API_KEY,
-)
+from hosted_llm import prompt_hosted
 
 ORCHESTRATOR_PROMPT = """ You are a multi agent system Architect.
 Given a USER TASK and a SECURITY RISK LEVEL (1-10), design a multi-agent system.
@@ -46,18 +33,6 @@ Return ONLY a valid JSON object in exactly this format:
 """
 
 
-def clean_json_response(content: str) -> str:
-    """Strips Markdown backticks if the proxy wraps JSON in markdown code blocks."""
-    content = content.strip()
-    if content.startswith("```json"):
-        content = content[7:]
-    elif content.startswith("```"):
-        content = content[3:]
-    if content.endswith("```"):
-        content = content[:-3]
-    return content.strip()
-
-
 def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
     level = int(security_score)
     topology = (
@@ -70,20 +45,7 @@ def get_agent_job_summaries(task: str, security_score: str = "5") -> tuple:
         f"REQUIRED TOPOLOGY: {topology}. Do not choose a different one."
     )
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": ORCHESTRATOR_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        response_format={"type": "json_object"},
-        temperature=0.0,
-    )
-
-    raw_content = response.choices[0].message.content
-    cleaned_content = clean_json_response(raw_content)
-
-    data = json.loads(cleaned_content)
+    data = prompt_hosted(ORCHESTRATOR_PROMPT, prompt)
     print("Orchestrator output:", json.dumps(data, indent=2))
 
     adjacency = data.get("adjacency_list", {})

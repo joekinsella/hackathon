@@ -1,4 +1,4 @@
-from llm import prompt_llm
+from hosted_llm import prompt_hosted as prompt_llm
 
 AGENT_PROMPT = """You are {agent_id}, acting as: {role_description}.
 

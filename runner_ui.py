@@ -1,165 +1,194 @@
-import queue
 import threading
 import tkinter as tk
-from tkinter import scrolledtext, ttk
-
-# Distinct background color palette for rendering different agent outputs
-AGENT_COLOR_PALETTE = [
-    "#D0E8FF",  # Soft Blue
-    "#D4EDDA",  # Soft Green
-    "#FFF3CD",  # Soft Yellow
-    "#F8D7DA",  # Soft Pink/Red
-    "#E2D9F3",  # Soft Purple
-    "#FFE5D9",  # Soft Peach
-    "#E0F7FA",  # Soft Teal
-]
+from tkinter import ttk
+from orchestrator import get_agent_job_summaries
 
 
-def run_system_gui(spec: dict, agents: dict, task: str) -> str:
-    """Launches a Tkinter UI window to display multi-agent communication in real time
+class AgentChatUI(tk.Tk):
+    """Tkinter window to display agent interactions as styled chat boxes."""
 
-    with unique background colors per agent, returning the final result when complete.
-    """
-    root = tk.Tk()
-    root.title("Multi-Agent Architecture Execution")
-    root.geometry("960x750")
+    def __init__(self, title="Multi-Agent System Execution"):
+        super().__init__()
+        self.title(title)
+        self.geometry("640x750")  # Fixed geometry string format
+        self.configure(bg="#F4F6F8")
 
-    # Header banner
-    header_frame = ttk.Frame(root, padding=10)
-    header_frame.pack(fill=tk.X)
+        # Header Title
+        header = tk.Label(
+            self,
+            text="Agent Communication Monitor",
+            font=("Segoe UI", 13, "bold"),
+            bg="#2C3E50",
+            fg="white",
+            pady=12,
+        )
+        header.pack(fill=tk.X)
 
-    ttk.Label(
-        header_frame,
-        text=f"Task: {task}",
-        font=("Segoe UI", 11, "bold"),
-        wraplength=900,
-    ).pack(anchor="w")
-    ttk.Label(
-        header_frame,
-        text=f"Entry Agent: {spec['entry_agent']}  |  Output Agent: {spec['output_agent']}",
-        font=("Segoe UI", 9, "italic"),
-    ).pack(anchor="w")
+        # Scrollable Canvas Container
+        self.canvas = tk.Canvas(self, bg="#F4F6F8", highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(
+            self, orient="vertical", command=self.canvas.yview
+        )
+        self.scrollable_frame = tk.Frame(self.canvas, bg="#F4F6F8")
 
-    # Scrollable text widget for live logs
-    output_box = scrolledtext.ScrolledText(
-        root, wrap=tk.WORD, font=("Consolas", 10), padx=10, pady=10
-    )
-    output_box.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-    # Configure custom background color tags for each participating agent
-    for idx, agent_id in enumerate(agents.keys()):
-        color = AGENT_COLOR_PALETTE[idx % len(AGENT_COLOR_PALETTE)]
-        tag_name = f"tag_{agent_id}"
-
-        output_box.tag_config(
-            tag_name,
-            background=color,
-            foreground="#111111",
-            lmargin1=15,
-            lmargin2=25,
-            rmargin=15,
-            spacing1=6,
-            spacing3=10,
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            ),
         )
 
-    # Tag formatting for the final completion block
-    output_box.tag_config(
-        "tag_final",
-        background="#28a745",
-        foreground="#ffffff",
-        font=("Consolas", 11, "bold"),
-        lmargin1=15,
-        rmargin=15,
-        spacing1=10,
-        spacing3=10,
-    )
-
-    msg_queue = queue.Queue()
-    result_container = {"final": None}
-
-    def worker():
-        """Executes agent steps in a background thread to prevent GUI freezing."""
-        adjacency = spec["adjacency"]
-        inbox = {
-            agent_id: [] for agent_id in agents
-        }  # Create mailboxes[cite: 10, 16]
-        inbox[spec["entry_agent"]].append(
-            task
-        )  # Assign initial task to entry agent[cite: 10, 16]
-        last_output = None
-        max_rounds = len(agents) * 3  # Allow sufficient pipeline passes
-
-        for round_num in range(max_rounds):
-            outgoing = []
-
-            for agent_id, agent in agents.items():
-                if not inbox[agent_id]:  # Skip agents with empty inboxes[cite: 10, 16]
-                    continue
-
-                messages = inbox[agent_id]
-                inbox[agent_id] = []  # Flush current inbox[cite: 10, 16]
-
-                # Process state transition and LLM generation[cite: 11, 16]
-                output, is_final = agent.update_state(messages)
-
-                # Queue output for real-time UI rendering
-                msg_queue.put(("OUTPUT", round_num, agent_id, output))
-
-                if agent_id == spec["output_agent"]:
-                    last_output = output
-                    if is_final:
-                        result_container["final"] = output
-                        msg_queue.put(
-                            ("FINAL", f"FINAL ANSWER REACHED:\n{output}")
-                        )
-                        return
-
-                for target in adjacency.get(agent_id, []):
-                    outgoing.append((target, output))
-
-            for target, message in outgoing:
-                inbox[target].append(message)
-
-            if not any(inbox.values()):  # Exit if no active messages remain[cite: 10, 16]
-                break
-
-        result_container["final"] = last_output
-        msg_queue.put(
-            ("FINAL", f"FINAL ANSWER (Pipeline Completed):\n{last_output}")
+        self.canvas_window = self.canvas.create_window(
+            (0, 0), window=self.scrollable_frame, anchor="nw"
+        )
+        self.canvas.bind(
+            "<Configure>",
+            lambda e: self.canvas.itemconfig(self.canvas_window, width=e.width),
         )
 
-    def poll_queue():
-        """Polls background messages and updates UI elements on the main thread."""
-        try:
-            while True:
-                msg_type, *args = msg_queue.get_nowait()
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-                if msg_type == "OUTPUT":
-                    round_num, agent_id, output = args
-                    tag_name = f"tag_{agent_id}"
+        # Color mapping for distinct agents
+        self.agent_colors = {}
+        self.palette = [
+            ("#E3F2FD", "#1565C0"),  # Blue
+            ("#F3E5F5", "#7B1FA2"),  # Purple
+            ("#E8F5E9", "#2E7D32"),  # Green
+            ("#FFF3E0", "#E65100"),  # Orange
+            ("#FCE4EC", "#C2185B"),  # Pink
+            ("#E0F7FA", "#00838F"),  # Cyan
+        ]
 
-                    header = f"--- [Round {round_num}] AGENT: {agent_id} ---\n"
-                    body = f"{header}{output}\n"
+    def _get_agent_style(self, agent_id: str):
+        if agent_id not in self.agent_colors:
+            idx = len(self.agent_colors) % len(self.palette)
+            self.agent_colors[agent_id] = self.palette[idx]
+        return self.agent_colors[agent_id]
 
-                    output_box.insert(tk.END, body, tag_name)
-                    output_box.insert(tk.END, "\n")
-                    output_box.see(tk.END)
+    def add_chat_bubble(self, sender: str, message: str, is_memory: bool = False):
+        bg_color, accent_color = self._get_agent_style(sender)
 
-                elif msg_type == "FINAL":
-                    final_text = args[0]
-                    banner = f"\n========================================\n{final_text}\n========================================\n"
-                    output_box.insert(tk.END, banner, "tag_final")
-                    output_box.see(tk.END)
+        wrapper = tk.Frame(self.scrollable_frame, bg="#F4F6F8", pady=4)
+        wrapper.pack(fill=tk.X, expand=True, padx=5)
 
-        except queue.Empty:
-            pass
+        card_bg = "#E0E0E0" if is_memory else bg_color
+        border_color = "#999999" if is_memory else accent_color
 
-        root.after(100, poll_queue)
+        card = tk.Frame(
+            wrapper,
+            bg=card_bg,
+            highlightbackground=border_color,
+            highlightthickness=1,
+            padx=12,
+            pady=8,
+        )
+        card.pack(anchor="w", fill=tk.X)
 
-    # Launch background thread and event pollers
-    threading.Thread(target=worker, daemon=True).start()
-    root.after(100, poll_queue)
-    root.mainloop()
+        label_title = f"[{sender}] - Private Memory" if is_memory else f"[{sender}]"
+        title_lbl = tk.Label(
+            card,
+            text=label_title,
+            font=("Segoe UI", 9, "bold"),
+            fg="#555555" if is_memory else accent_color,
+            bg=card_bg,
+            anchor="w",
+        )
+        title_lbl.pack(fill=tk.X)
 
-    # Pass final output string back to main.py upon window exit
-    return result_container["final"]
+        body_lbl = tk.Label(
+            card,
+            text=message,
+            font=("Segoe UI", 10, "italic" if is_memory else "normal"),
+            fg="#222222",
+            bg=card_bg,
+            justify=tk.LEFT,
+            wraplength=540,
+            anchor="w",
+        )
+        body_lbl.pack(fill=tk.X, pady=(4, 0))
+
+        # Auto-scroll to latest message
+        self.canvas.update_idletasks()
+        self.canvas.yview_moveto(1.0)
+
+
+def run_system_with_ui(spec, agents, task, ui: AgentChatUI):
+    """Identical to runner.run_system, but updates the GUI window live."""
+    adjacency = spec["adjacency"]
+    inbox = {agent_id: [] for agent_id in agents}
+    inbox[spec["entry_agent"]].append(task)
+    last_output = None
+
+    for round_num in range(len(agents)):
+        print(
+            f"\n--- round {round_num} --- inboxes:"
+            f" { {a: len(m) for a, m in inbox.items()} }"
+        )
+        outgoing = []
+
+        for agent_id, agent in agents.items():
+            if not inbox[agent_id]:
+                continue
+
+            messages = inbox[agent_id]
+            inbox[agent_id] = []
+
+            # Execute normal agent step
+            output, is_final = agent.update_state(messages)
+
+            # Extract memory note added in update_state
+            memory_note = agent.memory_log[-1] if agent.memory_log else ""
+
+            # Update UI chat boxes safely on main thread
+            if memory_note:
+                ui.after(0, ui.add_chat_bubble, agent_id, memory_note, True)
+            ui.after(0, ui.add_chat_bubble, agent_id, output, False)
+
+            if agent_id == spec["output_agent"]:
+                last_output = output
+                if is_final:
+                    print("Final output reached by the output agent.")
+                    return last_output
+
+            # FIX: Use .get() to prevent KeyError if an agent is missing from adjacency list
+            for target in adjacency.get(agent_id, []):
+                outgoing.append((target, output))
+
+        for target, message in outgoing:
+            inbox[target].append(message)
+
+        if not any(inbox.values()):
+            break
+
+    return last_output
+
+
+def main():
+    # Keep command prompt input identical
+    task = input("Task: ")
+    security = input("Security level (1-10): ").strip()
+
+    # Orchestration and console logging identical
+    spec, agents, task = get_agent_job_summaries(task, security)
+    print("\nAdjacency list:", spec["adjacency"])
+    print("Entry:", spec["entry_agent"], "| Output:", spec["output_agent"])
+
+    # Create UI window
+    ui = AgentChatUI(title=f"Multi-Agent Chat - {task[:30]}...")
+
+    # Run system loop in background thread to keep UI interactive
+    def background_runner():
+        final = run_system_with_ui(spec, agents, task, ui)
+        print("\nFINAL ANSWER:", final)
+
+    thread = threading.Thread(target=background_runner, daemon=True)
+    thread.start()
+
+    # Launch Tkinter window loop
+    ui.mainloop()
+
+
+if __name__ == "__main__":
+    main()
